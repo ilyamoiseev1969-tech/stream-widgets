@@ -23,98 +23,25 @@
   <div id="board"></div>
 </div>
 <script>
-  // Твои CSV-ссылки
-  const CSV_URLS = [
-    'https://docs.google.com/spreadsheets/d/e/2PACX-1vSt7iz-7l-uCsjQYfZXkskIrNthe20Mxs0f9sUxEFI8QihTXOSGpNsjmC4vRE_OdXoVclNRNgIT7RTm/pub?gid=865616681&single=true&output=csv',
-    'https://docs.google.com/spreadsheets/d/e/2PACX-1vSt7iz-7l-uCsjQYfZXkskIrNthe20Mxs0f9sUxEFI8QihTXOSGpNsjmC4vRE_OdXoVclNRNgIT7RTm/pub?gid=1115599664&single=true&output=csv'
-  ];
+  const API_URL = 'https://script.google.com/macros/s/AKfycbxmwUE0MmRH88tddmK0Nc7kVQKGkwH7gzD6wN4HTYqE5G6boNHlSAYYDoD_FXfb-urtEQ/exec?mode=top';
 
-  const board = document.getElementById('board');
-
-  function parseCSV(text) {
-    const rows = [];
-    let curRow = [];
-    let curField = '';
-    let quoted = false;
-    for (const ch of text) {
-      if (quoted) {
-        if (ch === '"') { quoted = false; }
-        else { curField += ch; }
-      } else {
-        if (ch === '"') { quoted = true; }
-        else if (ch === ',') { curRow.push(curField.trim()); curField = ''; }
-        else if (ch === '\n' || ch === '\r') {
-          if (curField || curRow.length) {
-            curRow.push(curField.trim());
-            rows.push(curRow);
-            curRow = [];
-            curField = '';
-          }
-          // пропускаем \r\n
-          if (ch === '\r' && text[text.indexOf(ch)+1] === '\n') continue;
-        } else { curField += ch; }
-      }
-    }
-    if (curField || curRow.length) {
-      curRow.push(curField.trim());
-      rows.push(curRow);
-    }
-    return rows.filter(r => r.some(f => f !== ''));
-  }
-
-  async function fetchCSV(url) {
-    const resp = await fetch(url + '?t=' + Date.now(), {cache: 'no-cache'});
-    const text = await resp.text();
-    return parseCSV(text);
-  }
-
-  function buildTop(allDonations) {
-    const totals = {};
-    allDonations.forEach(d => {
-      if (!d.name || isNaN(d.amount)) return;
-      totals[d.name] = (totals[d.name] || 0) + d.amount;
+  function render(data){
+    const c = document.getElementById('board');
+    if(!data.length){ c.innerHTML='<div style="text-align:center;padding:20px;">Нет данных</div>'; return; }
+    const medals=['🥇','🥈','🥉'];
+    let h='';
+    data.forEach((item,i)=>{
+      h+=`<div class="entry"><span class="place place-${i+1}">${medals[i]}</span><span class="name">${item.name}</span><span class="sum">${item.sum.toLocaleString()} ₽</span></div>`;
     });
-    return Object.entries(totals)
-      .sort((a,b) => b[1]-a[1])
-      .slice(0,3)
-      .map(([name,sum]) => ({name,sum}));
+    c.innerHTML=h;
   }
 
-  function render(data) {
-    if (!data.length) {
-      board.innerHTML = '<div style="text-align:center;padding:20px;">Нет данных</div>';
-      return;
-    }
-    const medals = ['🥇','🥈','🥉'];
-    let html = '';
-    data.forEach((item,i) => {
-      html += `<div class="entry"><span class="place place-${i+1}">${medals[i]}</span><span class="name">${item.name}</span><span class="sum">${item.sum.toLocaleString()} ₽</span></div>`;
-    });
-    board.innerHTML = html;
-  }
-
-  async function update() {
-    try {
-      const results = await Promise.all(CSV_URLS.map(fetchCSV));
-      const allDonations = [];
-      results.forEach(rows => {
-        // пропускаем заголовок
-        let start = 0;
-        if (rows.length && rows[0].some(cell => /имя|ник|name|сумма|amount/i.test(cell))) start = 1;
-        for (let i = start; i < rows.length; i++) {
-          const row = rows[i];
-          const name = row[1]?.trim();
-          const amount = parseFloat(row[2]?.replace(',', '.'));
-          if (name && !isNaN(amount) && amount > 0) {
-            allDonations.push({name, amount});
-          }
-        }
-      });
-      const top = buildTop(allDonations);
-      render(top);
-    } catch(e) {
-      console.error(e);
-    }
+  async function update(){
+    try{
+      const r = await fetch(API_URL + '&_=' + Date.now(), {cache: 'no-cache'});
+      const d = await r.json();
+      render(d);
+    }catch(e){console.error(e);}
   }
 
   update();
