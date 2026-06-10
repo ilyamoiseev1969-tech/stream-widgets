@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:transparent;color:#fff;font-family:Arial,sans-serif;overflow:hidden;display:flex;justify-content:center;align-items:center;height:100vh;margin:0;}
+  .widget{width:400px;padding:20px;background:rgba(10,10,20,0.85);border-radius:20px;border:2px solid gold;box-shadow:0 0 30px rgba(255,215,0,0.4);}
+  h2{text-align:center;font-size:28px;color:gold;margin-bottom:15px;text-shadow:0 0 10px gold;}
+  .entry{display:flex;align-items:center;background:rgba(255,255,255,0.05);margin-bottom:10px;padding:10px 15px;border-radius:10px;}
+  .place{font-size:30px;font-weight:700;width:40px;}
+  .place-1{color:#ffd700;}.place-2{color:silver;}.place-3{color:#cd7f32;}
+  .name{flex:1;font-size:24px;font-weight:600;margin-left:10px;}
+  .sum{font-size:24px;color:gold;font-weight:700;}
+</style>
+</head>
+<body>
+<div class="widget">
+  <h2>🏆 Топ донатеров</h2>
+  <div id="board"></div>
+</div>
+<script>
+  const API_URL = 'https://script.google.com/macros/s/AKfycbxYxP2WVSQiajauX5teqdRT6Sri47WSKwiel-zes7EuGB3NN-HfzD5M8DZsR2Mxe4wOtg/exec?format=json&mode=top';
+  function render(data){
+    const c = document.getElementById('board');
+    if(!data.length){ c.innerHTML='<div style="text-align:center;padding:20px;">Нет данных</div>'; return; }
+    const medals=['🥇','🥈','🥉'];
+    let h='';
+    data.forEach((item,i)=>{
+      h+=`<div class="entry"><span class="place place-${i+1}">${medals[i]}</span><span class="name">${item.name}</span><span class="sum">${item.sum.toLocaleString()} ₽</span></div>`;
+    });
+    c.innerHTML=h;
+  }
+  async function update(){
+    try{
+      const r=await fetch(API_URL+'&_='+Date.now(),{cache:'no-cache'});
+      const d=await r.json();
+      render(d);
+    }catch(e){console.error(e);}
+  }
+  update();
+  setInterval(update, 5000);
+</script>
+</body>
+</html>
