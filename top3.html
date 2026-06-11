@@ -28,56 +28,73 @@
     'https://docs.google.com/spreadsheets/d/e/2PACX-1vSt7iz-7l-uCsjQYfZXkskIrNthe20Mxs0f9sUxEFI8QihTXOSGpNsjmC4vRE_OdXoVclNRNgIT7RTm/pub?gid=1115599664&single=true&output=csv'
   ];
 
-  function parseCSV(str) {
+  function parseCSV(text) {
+    const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
     const rows = [];
-    let curRow = [], curField = '', quoted = false;
-    for (const ch of str) {
-      if (quoted) {
-        if (ch === '"') quoted = false;
-        else curField += ch;
-      } else {
-        if (ch === '"') quoted = true;
-        else if (ch === ',') { curRow.push(curField.trim()); curField = ''; }
-        else if (ch === '\n' || ch === '\r') {
-          if (curField || curRow.length) {
-            curRow.push(curField.trim());
-            rows.push(curRow);
-            curRow = []; curField = '';
-          }
-          if (ch === '\r' && str[str.indexOf(ch)+1] === '\n') continue;
-        } else curField += ch;
+    for (const line of lines) {
+      const cols = [];
+      let current = '';
+      let inQuotes = false;
+      for (const ch of line) {
+        if (inQuotes) {
+          if (ch === '"') inQuotes = false;
+          else current += ch;
+        } else {
+          if (ch === '"') inQuotes = true;
+          else if (ch === ',') {
+            cols.push(current.trim());
+            current = '';
+          } else current += ch;
+        }
       }
+      cols.push(current.trim());
+      rows.push(cols);
     }
-    if (curField || curRow.length) { curRow.push(curField.trim()); rows.push(curRow); }
-    return rows.filter(r => r.some(c => c !== ''));
+    return rows;
   }
 
   async function update() {
     try {
-      const results = await Promise.all(CSV_URLS.map(u => fetch(u + '?t=' + Date.now()).then(r => r.text())));
+      const results = await Promise.all(CSV_URLS.map(url =>
+        fetch(url + '&t=' + Date.now(), {cache: 'no-cache'}).then(r => r.text())
+      ));
       const all = [];
       results.forEach(rows => {
         let start = 0;
-        if (rows.length && rows[0].some(c => /имя|ник|name/i.test(c))) start = 1;
+        if (rows.length > 0 && Array.isArray(rows[0]) && rows[0].some(cell => /имя|ник|name/i.test(cell))) start = 1;
         for (let i = start; i < rows.length; i++) {
           const row = rows[i];
+          if (!Array.isArray(row)) continue;
           const name = row[1]?.trim();
           const amount = parseFloat(row[2]?.replace(',', '.'));
-          if (name && !isNaN(amount) && amount > 0) all.push({name, amount});
+          if (name && !isNaN(amount) && amount > 0) {
+            all.push({name, amount});
+          }
         }
       });
+
       const totals = {};
       all.forEach(d => { totals[d.name] = (totals[d.name] || 0) + d.amount; });
-      const top = Object.entries(totals).sort((a,b) => b[1] - a[1]).slice(0,3).map(([name,sum]) => ({name,sum}));
+      const top = Object.entries(totals)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([name, sum]) => ({name, sum}));
+
       const board = document.getElementById('board');
-      if (!top.length) { board.innerHTML = 'Нет данных'; return; }
+      if (!top.length) {
+        board.innerHTML = 'Нет данных';
+        return;
+      }
       const medals = ['🥇','🥈','🥉'];
-      board.innerHTML = top.map((item,i) => `<div class="entry"><span class="place place-${i+1}">${medals[i]}</span><span class="name">${item.name}</span><span class="sum">${item.sum.toLocaleString()} ₽</span></div>`).join('');
-    } catch(e) {
+      board.innerHTML = top.map((item, i) =>
+        `<div class="entry"><span class="place place-${i+1}">${medals[i]}</span><span class="name">${item.name}</span><span class="sum">${item.sum.toLocaleString()} ₽</span></div>`
+      ).join('');
+    } catch (e) {
       document.getElementById('board').innerHTML = 'Ошибка';
       console.error(e);
     }
   }
+
   update();
   setInterval(update, 5000);
 </script>
